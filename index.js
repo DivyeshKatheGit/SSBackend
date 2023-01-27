@@ -81,6 +81,7 @@ app.get('/images', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
+    console.log(process.env.SHEETS_URL)
     res.json({
         status: 'this is a server'
     })
