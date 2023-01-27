@@ -69,21 +69,13 @@ app.post('/upload', (req, res) => {
 
 });
 
-app.get('/images', (req, res) => {
+app.get('/images', async (req, res) => {
 
-    let urls = [];
-    images_array.map((image) => {
-        const url = cloudinary.url(image, {
-            width: 100,
-            height: 150,
-            Crop: 'fill'
-        });
-        urls.push(url)
-    });
+    const response = await axios.get(`${SHEETS_URL}`);
 
     res.json({
         error: false,
-        urls: urls
+        data: response?.data
     });
 
 });
