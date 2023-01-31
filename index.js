@@ -54,7 +54,7 @@ const IsXFrame = async (url) => {
 
 app.post('/upload', (req, res) => {
 
-    const { image, url, title } = req.body;
+    const { image, url, title = '' } = req.body;
 
     base64Data = image.replace(/^data:image\/jpeg;base64,/, ""),
         binaryData = Buffer.from(base64Data, 'base64').toString('binary');
