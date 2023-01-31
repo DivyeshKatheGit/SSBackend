@@ -29,16 +29,32 @@ cloudinary.config({
 
 const SHEETS_URL = process.env.SHEETS_URL;
 
-let images_array = [];
-
-const UploadToSheet = async(id, image, url) => {
-    const response = await axios.post(`${SHEETS_URL}?route=add_bookmark&id=${id}&image=${image}&url=${url}`);
+const UploadToSheet = async (id, image, url, title, x_frame) => {
+    const response = await axios.post(`${SHEETS_URL}?route=add_bookmark&id=${id}&image=${image}&url=${url}&title=${title}&frame=${x_frame}`);
     return response;
 };
 
+const IsXFrame = async (url) => {
+    return new Promise((resolve, reject) => {
+        axios.get(url).then((response) => {
+            const headers = response.headers;
+
+            if (headers['x-frame-options'] && (headers['x-frame-options'] === 'SAMEORIGIN' || headers['x-frame-options'] === 'DENY')) {
+                resolve(true);
+            }
+            else {
+                resolve(false);
+            }
+
+        }).catch(() => {
+            resolve(true);
+        })
+    });
+}
+
 app.post('/upload', (req, res) => {
 
-    const { image,url } = req.body;
+    const { image, url, title } = req.body;
 
     base64Data = image.replace(/^data:image\/jpeg;base64,/, ""),
         binaryData = Buffer.from(base64Data, 'base64').toString('binary');
@@ -53,12 +69,13 @@ app.post('/upload', (req, res) => {
 
     const cloud_res = cloudinary.uploader.upload(filepath, { public_id: filename });
     cloud_res.then(async (data) => {
-        images_array.push(data.secure_url);
-        const sheet_upload_response = await UploadToSheet(filename,data.secure_url,url);
+
+        const x_frame = await IsXFrame(url);
+        const sheet_upload_response = await UploadToSheet(filename, data.secure_url, url, title, x_frame);
         fs.unlink(filepath,(err)=> {console.log(err)});
+
         res.json({
             error: false,
-            images: images_array
         });
     }).catch((err) => {
         res.json({
