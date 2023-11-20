@@ -1,11 +1,16 @@
 const express = require('express');
-const cloudinary = require('cloudinary').v2;
-const axios = require('axios');
-const moment = require('moment');
-const fs = require('fs');
+const mongoose = require('mongoose');
+
+const wavesSchema = require('./mongodb/waves');
+const GetWebThumbnail = require('./utils/GetWebThumbnail');
+const GetWebTitle = require('./utils/GetWebTitle');
+
 require('dotenv').config();
 
+/* database connection */
+mongoose.connect(process.env.MONGODB_CONNECTION_URL);
 
+/* app configuration */
 const app = express();
 const PORT = process.env.PORT || 4040;
 
@@ -20,86 +25,58 @@ app.use(function (req, res, next) {
     next();
 });
 
-// Configuration 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
-const SHEETS_URL = process.env.SHEETS_URL;
 
-const UploadToSheet = async (id, image, url, title, x_frame) => {
-    const response = await axios.post(`${SHEETS_URL}?route=add_bookmark&id=${id}&image=${image}&url=${url}&title=${title}&frame=${x_frame}`);
-    return response;
-};
+/* routes */
 
-const IsXFrame = async (url) => {
-    return new Promise((resolve, reject) => {
-        axios.get(url).then((response) => {
-            const headers = response.headers;
+app.post('/waves', async(req, res) => {
 
-            if (headers['x-frame-options'] && (headers['x-frame-options'] === 'SAMEORIGIN' || headers['x-frame-options'] === 'DENY')) {
-                resolve(true);
-            }
-            else {
-                resolve(false);
-            }
+    console.log(req.body)
+    let {web_title=false,web_url} = req.body;
+    try{
 
-        }).catch(() => {
-            resolve(true);
-        })
-    });
-}
+        const thumbnail = await GetWebThumbnail(web_url);
+        if(!web_title){
+            web_title = await GetWebTitle(web_url);
+        };
 
-app.post('/upload', (req, res) => {
+        const wave = await wavesSchema.create({
+            web_title,
+            web_url,
+            web_thumbnail: thumbnail,
+            web_shot: thumbnail,
+            user_id: '55a0f42f20a4d760b5fc305e',
+            board_id: '65264c8d9c84ce52e1a84748'
+        });
 
-    const { image, url, title = '' } = req.body;
-
-    base64Data = image.replace(/^data:image\/jpeg;base64,/, ""),
-        binaryData = Buffer.from(base64Data, 'base64').toString('binary');
-
-    const filename = moment().unix();
-
-    const filepath = __dirname + `/uploads/${filename}.jpeg`;
-
-    fs.writeFile(`${filepath}`, binaryData, "binary", function (err) {
-        console.log(err); // writes out file without error, but it's not a valid image
-    });
-
-    const cloud_res = cloudinary.uploader.upload(filepath, { public_id: filename });
-    cloud_res.then(async (data) => {
-
-        const x_frame = await IsXFrame(url);
-        const sheet_upload_response = await UploadToSheet(filename, data.secure_url, url, title, x_frame);
-        fs.unlink(filepath,(err)=> {console.log(err)});
+        wave.save();
 
         res.json({
-            error: false,
-        });
-    }).catch((err) => {
+            error: false
+        })
+    }
+    catch(e){
         res.json({
             error: true,
+            message: e.message
         });
-    });
-
+    }
 
 });
 
-app.get('/images', async (req, res) => {
+app.get('/waves', async (req, res) => {
 
-    const response = await axios.get(`${SHEETS_URL}`);
-
+    const waves = await wavesSchema.find({});
+    
     res.json({
         error: false,
-        data: response?.data
-    });
-
+        data: waves
+    })
 });
 
 app.get('/', (req, res) => {
     res.json({
-        status: 'this is a server'
+        status: 'brainwave API server'
     })
 });
 
