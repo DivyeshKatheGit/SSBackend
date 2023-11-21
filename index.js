@@ -31,7 +31,6 @@ app.use(function (req, res, next) {
 
 app.post('/waves', async(req, res) => {
 
-    console.log(req.body)
     let {web_title=false,web_url} = req.body;
     try{
 
